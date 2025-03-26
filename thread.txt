@@ -1,0 +1,19 @@
+    curr_thread->status = RUNNABLE;
+    queue_enqueue(runQueue, curr_thread);
+    
+    void* child_stack = malloc(16 * 1024);
+    thread_t tmp = curr_thread->sp;
+    curr_thread->fp = child_stack;
+    curr_thread->sp = child_stack + 16 * 1024;
+    curr_thread->entry_fn = entry;
+    curr_thread->args = arg;
+    curr_thread->status = RUNNING;
+    
+    ctx_start(&tmp->sp, curr_thread->sp);
+    //never going past here;
+    printf("got here");
+    if (tmp->status == TERMINATED) {
+        
+        free((void*) tmp->fp);
+        free(tmp);
+    }
