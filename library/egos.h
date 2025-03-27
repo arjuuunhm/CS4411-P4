@@ -33,6 +33,7 @@ struct grass {
     int (*proc_alloc)();
     void (*proc_free)(int pid);
     void (*proc_set_ready)(int pid);
+    void (*proc_sleep)(uint pid, uint nticks);
 
     /* System call interface */
     void (*sys_send)(int receiver, char* msg, uint size);

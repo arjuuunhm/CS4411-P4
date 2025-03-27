@@ -29,6 +29,7 @@ void core_set_idle(uint core) { core_to_proc_idx[core] = MAX_NPROCESS; }
 
 static void intr_entry(uint);
 static void excp_entry(uint);
+ulonglong mtime_get();
 
 void kernel_entry(uint mcause) {
     /* With the kernel lock, only one core can enter this point at any time */
@@ -51,7 +52,7 @@ void kernel_entry(uint mcause) {
 #define INTR_ID_TIMER   7
 #define EXCP_ID_ECALL_U 8
 #define EXCP_ID_ECALL_M 11
-static void proc_yield();
+static void proc_yield(uint id);
 static void proc_try_syscall(struct process* proc);
 
 static void excp_entry(uint id) {
@@ -64,7 +65,7 @@ static void excp_entry(uint id) {
         proc_set[curr_proc_idx].mepc += 4;
         proc_set[curr_proc_idx].syscall.status = PENDING;
         proc_try_syscall(&proc_set[curr_proc_idx]);
-        proc_yield();
+        proc_yield(id);
         return;
     }
     /* Student's code goes here (system call and memory exception).
@@ -76,7 +77,7 @@ static void excp_entry(uint id) {
 
 static void intr_entry(uint id) {
     if (id == INTR_ID_TIMER) {
-        proc_yield();
+        proc_yield(id);
         return;
     }
 
@@ -88,15 +89,36 @@ static void intr_entry(uint id) {
     FATAL("excp_entry: kernel got interrupt %d", id);
 }
 
-static void proc_yield() {
+static void proc_yield(uint id) {
     /* Set the current process status to RUNNABLE if it was RUNNING */
     if (!CORE_IDLE && curr_status == PROC_RUNNING) proc_set_runnable(curr_pid);
 
     /* Student's code goes here (preemptive scheduler)
      * Replace the loop to find the next process with your sheduler logic. */
+    /* Decrement sleep counters */
+    for (uint i = 0; i < MAX_NPROCESS; i++) {
+        if (proc_set[i].time > 0) {
+            proc_set[i].time-= mtime_get();
+            if(proc_set[i].time < 0) {
+                proc_set[i].time = 0;
+            }
+        } else if (proc_set[i].status == PROC_SLEEPING && proc_set[i].time == 0) {
+            proc_set[i].status = PROC_RUNNABLE;
+        }
+    }
 
-    /* Find the next process to run */
+    /* Find next process that is not sleeping */
     int next_idx = MAX_NPROCESS;
+    for (uint i = 1; i <= MAX_NPROCESS; i++) {
+        struct process* p = &proc_set[(curr_proc_idx + i) % MAX_NPROCESS];
+
+        if (p->time == 0 && 
+            (p->status == PROC_READY || p->status == PROC_RUNNABLE)) {
+            next_idx = (curr_proc_idx + i) % MAX_NPROCESS;
+            break;
+        }
+    }
+    /* Find the next process to run */
     for (uint i = 1; i <= MAX_NPROCESS; i++) {
         struct process* p = &proc_set[(curr_proc_idx + i) % MAX_NPROCESS];
         if (p->status == PROC_PENDING_SYSCALL) proc_try_syscall(p);
@@ -143,6 +165,18 @@ static void proc_yield() {
         proc_set[curr_proc_idx].mepc              = APPS_ENTRY;
     }
     proc_set_running(curr_pid);
+}
+
+static void proc_sleep(uint pid, uint nticks) {
+
+    for (uint i = 0; i < MAX_NPROCESS; i++) {
+        if (proc_set[i].pid == pid && proc_set[i].status != PROC_UNUSED) {
+            proc_set[i].time = nticks;
+            proc_set[i].status = PROC_SLEEPING;
+            return;
+        }
+    }
+    FATAL("proc_sleep: process %d not found or invalid", pid);
 }
 
 static int proc_try_send(struct process* sender) {
@@ -199,10 +233,10 @@ static void proc_try_syscall(struct process* proc) {
     (rc == 0) ? proc_set_runnable(proc->pid) : proc_set_pending(proc->pid);
 }
 
-void proc_coresinfo() {
-    /* Student's code goes here (multi-core and atomic instruction) */
-    /* Print out the pid of the process running on each core;
-     * Add this function into the grass interface so that shell can invoke it */
+// void proc_coresinfo() {
+//     /* Student's code goes here (multi-core and atomic instruction) */
+//     /* Print out the pid of the process running on each core;
+//      * Add this function into the grass interface so that shell can invoke it */
 
-    /* Student's code ends here. */
-}
+//     /* Student's code ends here. */
+// }

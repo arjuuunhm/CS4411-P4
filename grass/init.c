@@ -9,6 +9,7 @@
 #include "egos.h"
 #include "syscall.h"
 #include "process.h"
+#include "kernel.c"
 
 static void sys_proc_read(uint block_no, char* dst) {
     earth->disk_read(SYS_PROC_EXEC_START + block_no, 1, dst);
@@ -23,6 +24,7 @@ void grass_entry() {
     grass->proc_set_ready = proc_set_ready;
     grass->sys_send       = sys_send;
     grass->sys_recv       = sys_recv;
+    grass->proc_sleep     = proc_sleep;
 
     /* Load the first system server GPID_PROCESS */
     INFO("Load kernel process #%d: sys_process", GPID_PROCESS);

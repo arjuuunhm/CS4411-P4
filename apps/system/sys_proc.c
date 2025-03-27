@@ -9,6 +9,7 @@
 #include "elf.h"
 #include "disk.h"
 #include <string.h>
+#include <stdlib.h>
 
 static int app_ino, app_pid;
 static void sys_spawn(uint base);
@@ -66,6 +67,9 @@ int main(int unused, struct multicore* locks) {
             break;
         case PROC_KILLALL:
             grass->proc_free(GPID_ALL);
+            break;
+        case PROC_SLEEP:
+            grass->proc_sleep(sender, atoi(req->argv[0]));
             break;
         default:
             FATAL("sys_process: invalid request %d", req->type);
